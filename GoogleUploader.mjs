@@ -1,5 +1,4 @@
 // 7. CLI: Google Uploader [ F | B ]
-// Google drive folder link: https://drive.google.com/drive/folders/1cIFJo5RAnJuX5DduUbwqLxO1QVgtkddB
 
 import inquirer from "inquirer";
 import axios from "axios";
