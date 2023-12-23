@@ -49,7 +49,7 @@ function createProfile() {
                                         ])
                                             .then((answersPassword) => {
                                                 const profile = {
-                                                    name: answersName.name,
+                                                    name: answersName.name[0].toUpperCase() + answersName.name.slice(1),
                                                     gender: answersGender.gender,
                                                     age: answersAge.age,
                                                     city: answersCity.city,
@@ -65,8 +65,7 @@ function createProfile() {
                                                 }
                                                 let usersDB = us.reduce((obj, item) => {
                                                     const key = Object.keys(item)[0];
-                                                    const value = item[key];
-                                                    obj[key] = value;
+                                                    obj[key] = item[key];
                                                     return obj
                                                 }, {})
 
@@ -126,12 +125,23 @@ function createProfile() {
                                     if (findUser) {
                                         console.log(`Users ${findUser.name} has found`)
                                         console.log(JSON.stringify(findUser))
-                                    } else {
-                                        console.log('Users not found')
+                                    }
+                                    if (!findUser) {
+                                        const keyToFind = answer.name.toLowerCase();
+
+                                        const usersWithKey = profileUsers.filter((user) => user.name.toLowerCase().includes(keyToFind));
+
+                                        if (usersWithKey.length > 0 && keyToFind.length > 0) {
+                                            console.log(`No users named "${keyToFind}" were found, but maybe you were looking for one of them?:`);
+                                            usersWithKey.forEach((user) => {
+                                                console.log(JSON.stringify(user));
+                                            });
+                                        } else {
+                                            console.log(`You must enter some value to search, you have entered an empty value, unfortunately you cannot search with an empty value`);
+                                        }
                                     }
                                 })
                         }
-
                     })
             }
         })
