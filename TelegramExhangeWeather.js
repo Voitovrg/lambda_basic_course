@@ -37,7 +37,10 @@ bot.onText(/\/start/, msg => {
 
     const message = 'Hi, would you like to know the "*_weather_*" or the "*_exchange rate_*"?'
 
-    bot.sendMessage(msgID, message, {parse_mode: 'MarkdownV2', reply_markup: {keyboard: [['Weather'],['Exchange rate']]}});
+    bot.sendMessage(msgID, message, {
+        parse_mode: 'MarkdownV2',
+        reply_markup: {keyboard: [['Weather'], ['Exchange rate']]}
+    });
 
     bot.on('message', msg => {
         text = msg.text;
@@ -47,7 +50,8 @@ bot.onText(/\/start/, msg => {
                 reply_markup: {
                     keyboard: [['Every 3 hours', 'Every 6 hours'], ['Back']]
                 }
-            })}
+            })
+        }
         if (text === 'Every 3 hours' || text === 'Every 6 hours') {
 
             intervalWeather = parseInt(text.match(/\d+/))
@@ -95,7 +99,7 @@ bot.onText(/\/start/, msg => {
                 }
             })
         }
-        if ( text === 'Change currency') {
+        if (text === 'Change currency') {
             bot.sendMessage(msgID, 'What currency are you interested in?', {
                 reply_markup: {
                     keyboard: [['EUR', 'USD'], ['Back']]
@@ -112,7 +116,7 @@ bot.onText(/\/start/, msg => {
                     const message = `${bankUser}:\n${currency.ccy}:\nBuy: ${currency.buy}\nSale: ${currency.sale}`
                     bot.sendMessage(msgID, message, {
                         reply_markup: {
-                            remove_keyboard: true
+                            keyboard: [['Weather'], ['Exchange rate']]
                         }
                     })
                 }
@@ -140,7 +144,7 @@ bot.onText(/\/start/, msg => {
                     const message = `${bankUser}:\n${currencyUser}:\nBuy:${currency.rateBuy}\nSale:${currency.rateSell}`
                     bot.sendMessage(msgID, message, {
                         reply_markup: {
-                            remove_keyboard: true
+                            keyboard: [['Weather'], ['Exchange rate']]
                         }
                     })
                 }
@@ -155,7 +159,7 @@ bot.onText(/\/start/, msg => {
                     const message = `PrivatBank:\n${currency.ccy}:\nBuy: ${currency.buy}\nSale: ${currency.sale}`
                     bot.sendMessage(msgID, message, {
                         reply_markup: {
-                            remove_keyboard: true
+                            keyboard: [['Weather'], ['Exchange rate']]
                         }
                     })
                 }
@@ -181,7 +185,7 @@ bot.onText(/\/start/, msg => {
                     const message = `MonoBank:\n${currencyUser}:\nBuy:${currency.rateBuy}\nSale:${currency.rateSell}`
                     bot.sendMessage(msgID, message, {
                         reply_markup: {
-                            remove_keyboard: true
+                            keyboard: [['Weather'], ['Exchange rate']]
                         }
                     })
                 }
@@ -189,64 +193,57 @@ bot.onText(/\/start/, msg => {
         }
     })
     bot.on('location', async msg => {
-        const { latitude, longitude } = msg.location;
-        const locationId = msg.chat.id;
+        const {latitude, longitude} = msg.location;
+        const chatId = msg.chat.id;
 
         console.log('User location:', latitude, longitude);
 
-        // Запрос на получение прогноза погоды с выбранным интервалом
-        const apiKey = '1ab12cd70f17ed73f6473ac07fbc81e3'
-        const weatherUrl = `https://api.openweathermap.org/data/2.5/forecast?lat=${latitude}&lon=${longitude}&appid=${apiKey}`;
+        const apiKey = '91f9e3b56ca52c06e239d497d32616b6';
+        const url = `http://api.openweathermap.org/data/2.5/forecast?lat=${latitude}&lon=${longitude}&appid=${apiKey}`;
 
-        try {
-            const response = await axios.get(weatherUrl);
-            const weatherData = response.data;
+        axios.get(url)
+            .then(response => {
+                const data = response.data;
+                const forecastsByDate = {};
 
-            // Обработка полученных данных и формирование ответа
-            let message = '';
+                data.list.forEach(entry => {
+                    const date = new Date(entry.dt * 1000);
+                    const forecastDate = date.toLocaleDateString('en-EN', {
+                        weekday: 'long',
+                        month: 'long',
+                        day: 'numeric'
+                    });
+                    const formattedDate = forecastDate.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+                    const time = date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
 
-            // Создаем объект для группировки прогнозов по дням
-            const forecastsByDate = {};
+                    // Определение временных отрезков в зависимости от выбранного временного шага
+                    const timeIntervals = intervalWeather === 3 ? ['03:00', '06:00', '09:00', '12:00', '15:00', '18:00', '21:00'] : ['06:00', '12:00', '18:00', '21:00'];
 
+                    // Проверка, соответствует ли время одному из временных отрезков
+                    if (timeIntervals.includes(time)) {
+                        const temperature = Math.round(entry.main.temp - 273.15);
+                        const feelsLike = Math.round(entry.main.feels_like - 273.15);
+                        const weatherDescription = entry.weather[0].description;
 
-            const timeStep = intervalWeather
+                        if (!forecastsByDate[formattedDate]) {
+                            forecastsByDate[formattedDate] = [];
+                        }
 
-            for (const entry of weatherData.list) {
-                const forecastDate = new Date(entry.dt * 1000).toLocaleDateString('en-US', {
-                    weekday: 'long',
-                    month: 'long',
-                    day: 'numeric',
+                        forecastsByDate[formattedDate].push(`${time}: Temperature: ${temperature}°C, Feels like: ${feelsLike}°C, ${weatherDescription}`);
+                    }
                 });
 
-                if (!forecastsByDate[forecastDate]) {
-                    forecastsByDate[forecastDate] = [];
+                // Отправка прогноза погоды пользователю одним сообщением
+                let forecastMessage = 'Weather forecast for your city:\n\n'; // Замените "вашего города" на название города, если оно доступно
+                for (const date in forecastsByDate) {
+                    forecastMessage += `${date}\n${forecastsByDate[date].join('\n')}\n\n`;
                 }
+                bot.sendMessage(chatId, forecastMessage);
+            })
+            .catch(error => {
+                console.error(`Ошибка при выполнении запроса: ${error}`);
+            });
+    });
 
-                const forecastTime = new Date(entry.dt * 1000).getHours();
 
-                // Оставляем только прогнозы с заданным временным шагом (3 или 6 часов)
-                if (forecastTime % timeStep === 0) {
-                    const time = new Date(entry.dt * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                    const temperature = Math.round(entry.main.temp - 273.15);
-                    const feelsLike = Math.round(entry.main.feels_like - 273.15);
-                    const weatherDescription = entry.weather[0].description;
-
-                    forecastsByDate[forecastDate].push(`${time}: Temperature: ${temperature}°C, Feels like: ${feelsLike}°C, ${weatherDescription}`);
-                }
-            }
-
-            // Формирование окончательного ответа с прогнозами на 5 дней
-            for (const forecastDate in forecastsByDate) {
-                message += `\n${forecastDate}:\n`;
-                message += forecastsByDate[forecastDate].join('\n');
-                message += '\n';
-            }
-
-            bot.sendMessage(locationId, message);
-        } catch (error) {
-            console.error('Error fetching weather data:', error);
-            bot.sendMessage(locationId, 'Sorry, something went wrong while fetching weather data.');
-        }
-
-    })
 })
